@@ -1,193 +1,52 @@
-<!doctype html>
-<html lang="vi">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="OTP Tool" />
-  <title>OTP Rental Tool</title>
-  <link rel="manifest" href="/manifest.json" />
-  <style>
-    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; background: #f3f4f6; }
-    body { margin: 0; padding: 18px; }
-    .wrap { max-width: 520px; margin: 0 auto; }
-    .card { background: #fff; border-radius: 22px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.08); margin-bottom: 14px; }
-    h1 { font-size: 24px; margin: 4px 0 4px; }
-    .muted { color: #6b7280; font-size: 14px; }
-    label { display: block; margin: 14px 0 6px; font-weight: 700; }
-    select, input { width: 100%; box-sizing: border-box; font-size: 18px; padding: 14px; border-radius: 14px; border: 1px solid #d1d5db; background: #fff; }
-    button { width: 100%; border: 0; border-radius: 16px; padding: 15px; font-size: 18px; font-weight: 800; margin-top: 12px; background: #ff7900; color: #fff; }
-    button.secondary { background: #111827; }
-    button.ghost { background: #e5e7eb; color: #111827; }
-    button:disabled { opacity: .55; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .big { font-size: 24px; font-weight: 900; letter-spacing: .3px; word-break: break-all; }
-    .otp { font-size: 38px; font-weight: 950; color: #059669; letter-spacing: 2px; }
-    .status { padding: 10px 12px; border-radius: 12px; background: #fef3c7; color: #92400e; font-weight: 700; display: inline-block; }
-    .ok { background: #d1fae5; color: #065f46; }
-    .err { background: #fee2e2; color: #991b1b; }
-  </style>
+  <meta charset="UTF-8">
+  <title>OTP Tool</title>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Thuê số nhận OTP</h1>
-      <div class="muted">TikTok mặc định • Không cần đăng nhập, chỉ dùng token theo iPhone.</div>
+  <h2>OTP Tool</h2>
 
-      <label>Quốc gia</label>
-      <select id="country"></select>
+  <select id="country">
+    <option value="6">Indonesia (+62)</option>
+    <option value="16">UK (+44)</option>
+  </select>
 
-      <button id="rentBtn">Lấy số</button>
-    </div>
+  <button onclick="getNumber()">Lấy số</button>
 
-    <div class="card" id="resultCard" style="display:none">
-      <div class="muted">Số điện thoại</div>
-      <div class="big" id="phone">—</div>
-      <div class="row">
-        <button class="secondary" id="copyPhone">Copy số</button>
-        <button class="ghost" id="cancelBtn">Hủy số</button>
-      </div>
-
-      <label>Trạng thái</label>
-      <span class="status" id="status">Đang chờ...</span>
-
-      <label>OTP</label>
-      <div class="otp" id="otp">—</div>
-      <button class="secondary" id="copyOtp" disabled>Copy OTP</button>
-      <button id="newBtn">Lấy số mới</button>
-    </div>
-  </div>
+  <p id="phone"></p>
+  <p id="otp"></p>
 
 <script>
-const params = new URLSearchParams(location.search);
-const token = params.get("token") || localStorage.getItem("otp_tool_token") || "";
-if (params.get("token")) localStorage.setItem("otp_tool_token", params.get("token"));
+const token = "iphone1";
+let id = null;
 
-const countryEl = document.getElementById("country");
-const rentBtn = document.getElementById("rentBtn");
-const resultCard = document.getElementById("resultCard");
-const phoneEl = document.getElementById("phone");
-const statusEl = document.getElementById("status");
-const otpEl = document.getElementById("otp");
-const copyPhone = document.getElementById("copyPhone");
-const copyOtp = document.getElementById("copyOtp");
-const cancelBtn = document.getElementById("cancelBtn");
-const newBtn = document.getElementById("newBtn");
+async function getNumber() {
+  const country = document.getElementById("country").value;
 
-let current = { id: null, phone: null, poller: null, startedAt: 0 };
-const TIMEOUT_MS = 60000;
-const POLL_MS = 5000;
-
-function api(path, options = {}) {
-  const url = path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(token);
-  return fetch(url, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
-  }).then(r => r.json());
-}
-
-function setStatus(text, type = "") {
-  statusEl.textContent = text;
-  statusEl.className = "status " + type;
-}
-
-async function loadCountries() {
-  if (!token) {
-    alert("Thiếu token. Mở link dạng: https://domain.com/?token=iphone1");
-    return;
-  }
-  const data = await api("/api/countries");
-  if (!data.ok) {
-    alert("Token sai hoặc server chưa cấu hình token.");
-    return;
-  }
-  countryEl.innerHTML = data.countries.map(c =>
-    `<option value="${c.code}">${c.flag} ${c.name} (${c.dial})</option>`
-  ).join("");
-  countryEl.value = "16";
-}
-
-async function rentNumber() {
-  clearInterval(current.poller);
-  rentBtn.disabled = true;
-  resultCard.style.display = "block";
-  phoneEl.textContent = "Đang lấy số...";
-  otpEl.textContent = "—";
-  copyOtp.disabled = true;
-  setStatus("Đang thuê số...");
-
-  const country = countryEl.value;
-  const data = await api("/api/rent", {
+  const res = await fetch(`/api/rent?token=${token}`, {
     method: "POST",
-    body: JSON.stringify({ country, service: "tt" })
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ country })
   });
 
-  rentBtn.disabled = false;
+  const data = await res.json();
+  document.getElementById("phone").innerText = data.phone;
 
-  if (!data.ok) {
-    phoneEl.textContent = "—";
-    setStatus(data.error || "Lỗi thuê số", "err");
-    return;
-  }
-
-  current.id = data.id;
-  current.phone = "+" + String(data.phone).replace(/^\+/, "");
-  current.startedAt = Date.now();
-
-  phoneEl.textContent = current.phone;
-  setStatus("Đang chờ OTP...");
-  startPolling();
+  id = data.id;
+  checkOTP();
 }
 
-function startPolling() {
-  current.poller = setInterval(checkStatus, POLL_MS);
-  checkStatus();
-}
+async function checkOTP() {
+  const res = await fetch(`/api/status?id=${id}&token=${token}`);
+  const data = await res.json();
 
-async function checkStatus() {
-  if (!current.id) return;
-
-  if (Date.now() - current.startedAt > TIMEOUT_MS) {
-    await cancelNumber(false);
-    setStatus("Quá 60 giây, đã hủy. Bấm lấy số mới.", "err");
-    return;
-  }
-
-  const data = await api("/api/status?id=" + encodeURIComponent(current.id));
-  if (!data.ok) {
-    setStatus(data.error || "Lỗi kiểm tra OTP", "err");
-    return;
-  }
-
-  if (data.status === "ok") {
-    clearInterval(current.poller);
-    otpEl.textContent = data.code;
-    copyOtp.disabled = false;
-    setStatus("Đã nhận OTP", "ok");
+  if (data.code) {
+    document.getElementById("otp").innerText = data.code;
   } else {
-    const left = Math.max(0, Math.ceil((TIMEOUT_MS - (Date.now() - current.startedAt)) / 1000));
-    setStatus("Đang chờ OTP... còn " + left + "s");
+    setTimeout(checkOTP, 3000);
   }
 }
-
-async function cancelNumber(show = true) {
-  clearInterval(current.poller);
-  if (!current.id) return;
-  await api("/api/cancel", {
-    method: "POST",
-    body: JSON.stringify({ id: current.id })
-  });
-  current.id = null;
-  if (show) setStatus("Đã hủy số", "err");
-}
-
-rentBtn.onclick = rentNumber;
-newBtn.onclick = async () => { await cancelNumber(false); rentNumber(); };
-cancelBtn.onclick = () => cancelNumber(true);
-copyPhone.onclick = () => navigator.clipboard.writeText(phoneEl.textContent);
-copyOtp.onclick = () => navigator.clipboard.writeText(otpEl.textContent);
-
-loadCountries();
 </script>
 </body>
 </html>

@@ -1,167 +1,202 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OTP Tool</title>
+<meta charset="UTF-8">
+<title>OTP Tool</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #ff7a00, #1a1a2e);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
+<style>
+body {
+  margin:0;
+  font-family:Arial;
+  background:linear-gradient(135deg,#ff7a00,#111827);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+.card {
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  width:340px;
+}
+button {
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+.main { background:#ff7a00;color:#fff; }
+.dark { background:#111827;color:#fff; }
+.red { background:#dc2626;color:#fff; }
 
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 16px;
-      width: 320px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    }
+.box {
+  margin-top:12px;
+  padding:12px;
+  background:#f3f4f6;
+  border-radius:12px;
+}
 
-    h2 {
-      margin-top: 0;
-    }
+.phone { font-size:20px;font-weight:bold; }
+.otp { font-size:30px;color:#16a34a;font-weight:bold; }
 
-    select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      background: #ff7a00;
-      color: white;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .box {
-      margin-top: 15px;
-      padding: 10px;
-      background: #f5f5f5;
-      border-radius: 10px;
-    }
-
-    .error {
-      background: #ffd6d6;
-      color: red;
-      margin-top: 10px;
-      padding: 8px;
-      border-radius: 8px;
-      text-align: center;
-    }
-
-    .success {
-      color: green;
-    }
-  </style>
+.status {
+  margin-top:10px;
+  padding:10px;
+  text-align:center;
+  border-radius:10px;
+  background:#fff7ed;
+}
+.ok { background:#dcfce7;color:#166534; }
+.err { background:#fee2e2;color:#991b1b; }
+</style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>OTP Tool</h2>
+  <h3>OTP Tool</h3>
 
-  <label>Dịch vụ</label>
-  <select id="service">
-    <option value="lf">TikTok</option>
-  </select>
-
-  <label>Quốc gia</label>
-  <select id="country">
-    <option value="6">🇮🇩 Indonesia (+62)</option>
-  </select>
-
-  <button onclick="getNumber()">Lấy số điện thoại</button>
+  <button class="main" onclick="getNumber()">Lấy số</button>
 
   <div class="box">
-    <b>Số điện thoại:</b>
-    <div id="phone">---</div>
+    <div>Số điện thoại</div>
+    <div id="phone" class="phone">---</div>
+
+    <button class="dark" onclick="copyPhone()">Copy số (bỏ +62)</button>
+    <button class="red" onclick="cancelNumber()">HỦY SỐ</button>
   </div>
 
   <div class="box">
-    <b>OTP:</b>
-    <div id="otp">----</div>
+    <div>OTP</div>
+    <div id="otp" class="otp">----</div>
   </div>
 
-  <div id="error" class="error" style="display:none"></div>
+  <div id="status" class="status">Sẵn sàng</div>
 </div>
 
 <script>
-const TOKEN = "iphone1"; // phải trùng APP_TOKENS
+const TOKEN = "iphone1";
 
-let currentId = null;
+let currentId = localStorage.getItem("id");
+let currentPhone = localStorage.getItem("phone");
 
-function showError(msg) {
-  const el = document.getElementById("error");
-  el.style.display = "block";
-  el.innerText = msg;
+function setStatus(t, type=""){
+  const el = document.getElementById("status");
+  el.className = "status " + type;
+  el.innerText = t;
 }
 
-function clearError() {
-  const el = document.getElementById("error");
-  el.style.display = "none";
+function save(){
+  localStorage.setItem("id", currentId);
+  localStorage.setItem("phone", currentPhone);
 }
 
-async function getNumber() {
-  clearError();
-  document.getElementById("phone").innerText = "Đang lấy...";
-  document.getElementById("otp").innerText = "----";
+function clear(){
+  localStorage.removeItem("id");
+  localStorage.removeItem("phone");
+}
 
-  try {
-    const res = await fetch("/api/rent?token=" + TOKEN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        service: document.getElementById("service").value,
-        country: document.getElementById("country").value
+function showPhone(){
+  if(!currentPhone) return;
+  document.getElementById("phone").innerText = "+62" + currentPhone;
+}
+
+async function getNumber(){
+  setStatus("Đang lấy số...");
+  document.getElementById("otp").innerText="----";
+
+  try{
+    const res = await fetch("/api/rent?token="+TOKEN,{
+      method:"POST",
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        service:"lf",
+        country:"6"
       })
     });
 
     const data = await res.json();
 
-    if (!data.ok) {
-      showError(data.error || "Lỗi lấy số");
-      document.getElementById("phone").innerText = "Không có số";
+    if(!data.ok){
+      setStatus(data.error,"err");
       return;
     }
 
     currentId = data.id;
-    document.getElementById("phone").innerText = data.phone;
+    currentPhone = data.phone.replace(/^62/, ""); // bỏ 62 gốc
 
+    save();
+    showPhone();
+
+    setStatus("Đã có số, chờ OTP...");
     checkOTP();
 
-  } catch (e) {
-    showError("Lỗi kết nối server");
+  }catch{
+    setStatus("Lỗi server","err");
   }
 }
 
-async function checkOTP() {
-  if (!currentId) return;
+async function checkOTP(){
+  if(!currentId) return;
 
-  try {
+  try{
     const res = await fetch(`/api/status?id=${currentId}&token=${TOKEN}`);
     const data = await res.json();
 
-    if (data.status === "ok") {
+    if(data.code){
       document.getElementById("otp").innerText = data.code;
+      setStatus("Đã nhận OTP","ok");
       return;
     }
 
-    setTimeout(checkOTP, 5000);
+    setTimeout(checkOTP,4000);
 
-  } catch (e) {
-    setTimeout(checkOTP, 5000);
+  }catch{
+    setTimeout(checkOTP,4000);
   }
+}
+
+async function cancelNumber(){
+  if(!currentId){
+    setStatus("Không có số để hủy","err");
+    return;
+  }
+
+  try{
+    await fetch("/api/cancel?token="+TOKEN,{
+      method:"POST",
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ id: currentId })
+    });
+
+    setStatus("Đã hủy số","ok");
+
+    currentId=null;
+    currentPhone=null;
+    clear();
+
+    document.getElementById("phone").innerText="---";
+    document.getElementById("otp").innerText="----";
+
+  }catch{
+    setStatus("Hủy lỗi","err");
+  }
+}
+
+function copyPhone(){
+  if(!currentPhone) return;
+  navigator.clipboard.writeText(currentPhone);
+  setStatus("Đã copy số (không có +62)","ok");
+}
+
+// reload vẫn giữ
+if(currentPhone){
+  showPhone();
+  checkOTP();
 }
 </script>
 

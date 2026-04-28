@@ -1,0 +1,17 @@
+{
+  "name": "otp-rental-tool",
+  "version": "1.0.0",
+  "description": "Private PWA tool for renting virtual phone numbers and waiting for OTP via GrizzlySMS API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.3",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

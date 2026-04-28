@@ -1,0 +1,9 @@
+{
+  "name": "OTP Rental Tool",
+  "short_name": "OTP Tool",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#ff7900",
+  "icons": []
+}
